@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Telegram Pong</title>
+    <title>Territory Capture</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.55.2/phaser.min.js"></script>
 </head>
 <body>
@@ -18,62 +18,68 @@
             scene: { preload, create, update }
         };
 
-        let player, opponent, ball, playerScore = 0, opponentScore = 0;
-        let cursors, scoreText;
+        let player, cursors, enemies = [], trail = [], capturedArea = 0;
+        let gameOver = false, scoreText;
 
         const game = new Phaser.Game(config);
 
         function preload() {
-            this.load.image('paddle', 'https://i.imgur.com/2nBJSJ3.png');
-            this.load.image('ball', 'https://i.imgur.com/3pUep1A.png');
+            this.load.image('player', 'https://i.imgur.com/q1mK4ik.png');
+            this.load.image('enemy', 'https://i.imgur.com/5uJkrkK.png');
         }
 
         function create() {
-            player = this.physics.add.sprite(50, 300, 'paddle').setImmovable();
-            opponent = this.physics.add.sprite(750, 300, 'paddle').setImmovable();
-            ball = this.physics.add.sprite(400, 300, 'ball');
+            this.add.rectangle(400, 300, 800, 600, 0x555555);
+            player = this.physics.add.sprite(50, 300, 'player').setCollideWorldBounds(true);
             
-            ball.setCollideWorldBounds(true);
-            ball.setBounce(1);
-            ball.setVelocityX(-200);
-            
-            this.physics.add.collider(ball, player, bounceBall, null, this);
-            this.physics.add.collider(ball, opponent, bounceBall, null, this);
+            for (let i = 0; i < 3; i++) {
+                let enemy = this.physics.add.sprite(Phaser.Math.Between(200, 600), Phaser.Math.Between(100, 500), 'enemy');
+                enemy.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-100, 100));
+                enemy.setBounce(1).setCollideWorldBounds(true);
+                enemies.push(enemy);
+            }
             
             cursors = this.input.keyboard.createCursorKeys();
-            
-            scoreText = this.add.text(350, 20, 'Score: 0 - 0', { fontSize: '32px', fill: '#fff' });
+            scoreText = this.add.text(20, 20, 'Captured: 0%', { fontSize: '24px', fill: '#fff' });
+            this.physics.add.overlap(player, enemies, hitEnemy, null, this);
         }
 
         function update() {
-            if (cursors.up.isDown) player.setVelocityY(-300);
-            else if (cursors.down.isDown) player.setVelocityY(300);
-            else player.setVelocityY(0);
+            if (gameOver) return;
             
-            opponent.y = ball.y;
+            player.setVelocity(0);
+            if (cursors.left.isDown) player.setVelocityX(-200);
+            if (cursors.right.isDown) player.setVelocityX(200);
+            if (cursors.up.isDown) player.setVelocityY(-200);
+            if (cursors.down.isDown) player.setVelocityY(200);
             
-            if (ball.x < 0) { opponentScore++; resetBall(); }
-            if (ball.x > 800) { playerScore++; resetBall(); }
+            trail.push({ x: player.x, y: player.y });
+            if (trail.length > 100) trail.shift();
             
-            scoreText.setText(`Score: ${playerScore} - ${opponentScore}`);
-            
-            if (ball.x < 0 || ball.x > 800) saveScore(playerScore, opponentScore);
+            if (Math.random() < 0.01) checkCapture();
         }
 
-        function bounceBall(ball, paddle) {
-            let diff = ball.y - paddle.y;
-            ball.setVelocityY(diff * 5);
+        function hitEnemy(player, enemy) {
+            gameOver = true;
+            scoreText.setText('Game Over!');
+            saveScore(capturedArea);
         }
 
-        function resetBall() {
-            ball.setPosition(400, 300);
-            ball.setVelocityX(ball.body.velocity.x > 0 ? -200 : 200);
+        function checkCapture() {
+            let area = Phaser.Math.Between(5, 15);
+            capturedArea += area;
+            scoreText.setText(`Captured: ${capturedArea}%`);
+            if (capturedArea >= 75) {
+                gameOver = true;
+                scoreText.setText('You Win!');
+                saveScore(capturedArea);
+            }
         }
 
-        function saveScore(playerScore, opponentScore) {
+        function saveScore(captured) {
             fetch(API_URL, {
                 method: "POST",
-                body: JSON.stringify({ userId: "12345", playerScore, opponentScore }),
+                body: JSON.stringify({ userId: "12345", captured }),
                 headers: { "Content-Type": "application/json" },
             });
         }
