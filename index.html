@@ -30,107 +30,50 @@
             this.load.image('enemy', 'https://popolzenx86.github.io/zenpop/enemy.png');
             this.load.image('background', 'https://popolzenx86.github.io/zenpop/background.png');
         }
-function create() {
-    // Инициализация фона
-    background = this.add.tileSprite(400, 300, 800, 600, 'background');
-    background.setAlpha(0);
 
-    // Инициализация графики и поля
-    graphics = this.add.graphics();
-    initField();
+        function create() {
+            background = this.add.tileSprite(400, 300, 800, 600, 'background');
+            background.setAlpha(0);
 
-    // Создание игрока с начальными координатами (10, 10)
-    player = this.physics.add.sprite(10, 10, 'player').setCollideWorldBounds(true);
+            graphics = this.add.graphics();
+            initField();
 
-    // Создание врагов
-    for (let i = 0; i < 3; i++) {
-        let enemy = this.physics.add.sprite(
-            Phaser.Math.Between(200, 600),
-            Phaser.Math.Between(100, 500),
-            'enemy'
-        );
-        enemy.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-100, 100));
-        enemy.setBounce(1).setCollideWorldBounds(true);
-        enemies.push(enemy);
-    }
+            player = this.physics.add.sprite(0, 0, 'player').setCollideWorldBounds(true);
 
-    // Инициализация управления
-    cursors = this.input.keyboard.createCursorKeys();
-
-    // Текст счета
-    scoreText = this.add.text(20, 20, 'Captured: 0%', { fontSize: '24px', fill: '#fff' });
-
-    // Коллизия игрока с врагами
-    this.physics.add.overlap(player, enemies, hitEnemy, null, this);
-}
-function floodFill() {
-    let visited = new Array(rows).fill(0).map(() => new Array(cols).fill(false));
-    let queue = [];
-
-    function addToQueue(x, y) {
-        if (x < 0 || y < 0 || x >= cols || y >= rows) return;
-        if (visited[y][x] || field[y][x] === 1) return;
-        visited[y][x] = true;
-        queue.push({ x, y });
-    }
-
-    enemies.forEach(enemy => {
-        let cx = Math.floor(enemy.x / cellSize);
-        let cy = Math.floor(enemy.y / cellSize);
-        addToQueue(cx, cy);
-    });
-
-    while (queue.length > 0) {
-        let { x, y } = queue.shift();
-        addToQueue(x + 1, y);
-        addToQueue(x - 1, y);
-        addToQueue(x, y + 1);
-        addToQueue(x, y - 1);
-    }
-
-    for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-            if (!visited[y][x]) {
-                field[y][x] = 1;
-                background.setAlpha(1);
+            for (let i = 0; i < 3; i++) {
+                let enemy = this.physics.add.sprite(
+                    Phaser.Math.Between(200, 600),
+                    Phaser.Math.Between(100, 500),
+                    'enemy'
+                );
+                enemy.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-100, 100));
+                enemy.setBounce(1).setCollideWorldBounds(true);
+                enemies.push(enemy);
             }
+
+            cursors = this.input.keyboard.createCursorKeys();
+            scoreText = this.add.text(20, 20, 'Captured: 0%', { fontSize: '24px', fill: '#fff' });
+
+            this.physics.add.overlap(player, enemies, hitEnemy, null, this);
         }
-    }
-}
 
-function captureArea() {
-    if (trail.length < 3) return;
+        function update() {
+            if (gameOver) return;
 
-    trail.forEach(point => {
-        let cx = Math.floor(point.x / cellSize);
-        let cy = Math.floor(point.y / cellSize);
-        field[cy][cx] = 1;
-    });
+            player.setVelocity(0);
 
-    floodFill();
-    updateScore();
-    trail = []; // Очищаем trail после захвата
-}
+            if (cursors.left.isDown) movePlayer(-cellSize, 0);
+            if (cursors.right.isDown) movePlayer(cellSize, 0);
+            if (cursors.up.isDown) movePlayer(0, -cellSize);
+            if (cursors.down.isDown) movePlayer(0, cellSize);
 
-function update() {
-    if (gameOver) return;
+            if (trail.length > 0 && isPlayerOnBorder(player.x, player.y)) {
+                captureArea();
+                trail = [];
+            }
 
-    player.setVelocity(0);
-
-    if (cursors.left.isDown) movePlayer(-cellSize, 0);
-    if (cursors.right.isDown) movePlayer(cellSize, 0);
-    if (cursors.up.isDown) movePlayer(0, -cellSize);
-    if (cursors.down.isDown) movePlayer(0, cellSize);
-
-    if (trail.length > 0 && isPlayerOnBorder(player.x, player.y)) {
-        captureArea();
-        trail = []; // Очищаем trail после захвата
-    }
-
-    drawField();
-}
-
-
+            drawField();
+        }
 
         function movePlayer(dx, dy) {
             let newX = player.x + dx;
@@ -179,7 +122,40 @@ function update() {
             updateScore();
         }
 
-      
+        function floodFill() {
+            let visited = new Array(rows).fill(0).map(() => new Array(cols).fill(false));
+            let queue = [];
+
+            function addToQueue(x, y) {
+                if (x < 0 || y < 0 || x >= cols || y >= rows) return;
+                if (visited[y][x] || field[y][x] === 1) return;
+                visited[y][x] = true;
+                queue.push({ x, y });
+            }
+
+            enemies.forEach(enemy => {
+                let cx = Math.floor(enemy.x / cellSize);
+                let cy = Math.floor(enemy.y / cellSize);
+                addToQueue(cx, cy);
+            });
+
+            while (queue.length > 0) {
+                let { x, y } = queue.shift();
+                addToQueue(x + 1, y);
+                addToQueue(x - 1, y);
+                addToQueue(x, y + 1);
+                addToQueue(x, y - 1);
+            }
+
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    if (!visited[y][x]) {
+                        field[y][x] = 1;
+                        background.setAlpha(1);
+                    }
+                }
+            }
+        }
 
         function updateScore() {
             let capturedCells = field.flat().filter(v => v === 1).length;
