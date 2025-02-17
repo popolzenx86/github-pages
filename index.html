@@ -30,7 +30,39 @@
             this.load.image('enemy', 'https://popolzenx86.github.io/zenpop/enemy.png');
             this.load.image('background', 'https://popolzenx86.github.io/zenpop/background.png');
         }
+function create() {
+    // Инициализация фона
+    background = this.add.tileSprite(400, 300, 800, 600, 'background');
+    background.setAlpha(0);
 
+    // Инициализация графики и поля
+    graphics = this.add.graphics();
+    initField();
+
+    // Создание игрока с начальными координатами (10, 10)
+    player = this.physics.add.sprite(10, 10, 'player').setCollideWorldBounds(true);
+
+    // Создание врагов
+    for (let i = 0; i < 3; i++) {
+        let enemy = this.physics.add.sprite(
+            Phaser.Math.Between(200, 600),
+            Phaser.Math.Between(100, 500),
+            'enemy'
+        );
+        enemy.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-100, 100));
+        enemy.setBounce(1).setCollideWorldBounds(true);
+        enemies.push(enemy);
+    }
+
+    // Инициализация управления
+    cursors = this.input.keyboard.createCursorKeys();
+
+    // Текст счета
+    scoreText = this.add.text(20, 20, 'Captured: 0%', { fontSize: '24px', fill: '#fff' });
+
+    // Коллизия игрока с врагами
+    this.physics.add.overlap(player, enemies, hitEnemy, null, this);
+}
 function floodFill() {
     let visited = new Array(rows).fill(0).map(() => new Array(cols).fill(false));
     let queue = [];
