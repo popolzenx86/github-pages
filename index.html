@@ -31,66 +31,90 @@
             this.load.image('background', 'https://popolzenx86.github.io/zenpop/background.png');
         }
 
-        function create() {
-            background = this.add.tileSprite(400, 300, 800, 600, 'background');
-            background.setAlpha(0);
+function create() {
+    background = this.add.tileSprite(400, 300, 800, 600, 'background');
+    background.setAlpha(0);
 
-            graphics = this.add.graphics();
-            initField();
+    graphics = this.add.graphics();
+    initField();
 
-            player = this.physics.add.sprite(0, 0, 'player').setCollideWorldBounds(true);
+    player = this.physics.add.sprite(0, 0, 'player').setCollideWorldBounds(true);
 
-            for (let i = 0; i < 3; i++) {
-                let enemy = this.physics.add.sprite(
-                    Phaser.Math.Between(200, 600),
-                    Phaser.Math.Between(100, 500),
-                    'enemy'
-                );
-                enemy.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-100, 100));
-                enemy.setBounce(1).setCollideWorldBounds(true);
-                enemies.push(enemy);
+    // Добавляем начальную позицию игрока в трейл
+    trail.push({ x: player.x, y: player.y });
+
+    for (let i = 0; i < 3; i++) {
+        let enemy = this.physics.add.sprite(
+            Phaser.Math.Between(200, 600),
+            Phaser.Math.Between(100, 500),
+            'enemy'
+        );
+        enemy.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-100, 100));
+        enemy.setBounce(1).setCollideWorldBounds(true);
+        enemies.push(enemy);
+    }
+
+    cursors = this.input.keyboard.createCursorKeys();
+    scoreText = this.add.text(20, 20, 'Captured: 0%', { fontSize: '24px', fill: '#fff' });
+
+    this.physics.add.overlap(player, enemies, hitEnemy, null, this);
+}
+
+function update() {
+    if (gameOver) return;
+
+    player.setVelocity(0);
+
+    if (cursors.left.isDown) movePlayer(-cellSize, 0);
+    if (cursors.right.isDown) movePlayer(cellSize, 0);
+    if (cursors.up.isDown) movePlayer(0, -cellSize);
+    if (cursors.down.isDown) movePlayer(0, cellSize);
+
+    if (trail.length > 0 && isPlayerOnBorder(player.x, player.y)) {
+        captureArea();
+        trail = [];
+        // После очистки трейла добавляем текущую позицию игрока
+        trail.push({ x: player.x, y: player.y });
+    }
+
+    drawField();
+}
+
+function movePlayer(dx, dy) {
+    let newX = player.x + dx;
+    let newY = player.y + dy;
+
+    let cx = Math.floor(newX / cellSize);
+    let cy = Math.floor(newY / cellSize);
+
+    if (field[cy][cx] === 0) {
+        trail.push({ x: player.x, y: player.y });
+        checkTrailCollision();
+    }
+
+    player.x = newX;
+    player.y = newY;
+}
+
+function drawField() {
+    graphics.clear();
+    for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+            if (field[y][x] === 1) {
+                graphics.fillStyle(0x5555ff, 1);
+                graphics.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
             }
-
-            cursors = this.input.keyboard.createCursorKeys();
-            scoreText = this.add.text(20, 20, 'Captured: 0%', { fontSize: '24px', fill: '#fff' });
-
-            this.physics.add.overlap(player, enemies, hitEnemy, null, this);
         }
+    }
 
-        function update() {
-            if (gameOver) return;
+    graphics.lineStyle(2, 0xff0000);
+    for (let i = 1; i < trail.length; i++) {
+        graphics.lineBetween(trail[i - 1].x, trail[i - 1].y, trail[i].x, trail[i].y);
+    }
+}
 
-            player.setVelocity(0);
 
-            if (cursors.left.isDown) movePlayer(-cellSize, 0);
-            if (cursors.right.isDown) movePlayer(cellSize, 0);
-            if (cursors.up.isDown) movePlayer(0, -cellSize);
-            if (cursors.down.isDown) movePlayer(0, cellSize);
-
-            if (trail.length > 0 && isPlayerOnBorder(player.x, player.y)) {
-                captureArea();
-                trail = [];
-            }
-
-            drawField();
-        }
-
-        function movePlayer(dx, dy) {
-            let newX = player.x + dx;
-            let newY = player.y + dy;
-
-            let cx = Math.floor(newX / cellSize);
-            let cy = Math.floor(newY / cellSize);
-
-            if (field[cy][cx] === 0) {
-                trail.push({ x: player.x, y: player.y });
-                checkTrailCollision();
-            }
-
-            player.x = newX;
-            player.y = newY;
-        }
-
+      
         function isPlayerOnBorder(x, y) {
             let cx = Math.floor(x / cellSize);
             let cy = Math.floor(y / cellSize);
@@ -170,24 +194,6 @@
             }
         }
 
-        function drawField() {
-            graphics.clear();
-            for (let y = 0; y < rows; y++) {
-                for (let x = 0; x < cols; x++) {
-                    if (field[y][x] === 1) {
-                        graphics.fillStyle(0x5555ff, 1);
-                        graphics.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-                    }
-                }
-            }
-
-            graphics.lineStyle(2, 0xff0000);
-            trail.forEach((point, index) => {
-                if (index > 0) {
-                    graphics.lineBetween(trail[index - 1].x, trail[index - 1].y, point.x, point.y);
-                }
-            });
-        }
 
         function initField() {
             for (let y = 0; y < rows; y++) {
