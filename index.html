@@ -3,17 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Classic Xonix Debug</title>
+    <title>Classic Xonix</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.55.2/phaser.min.js"></script>
 </head>
 <body>
-    <div style="position: absolute; left: 820px; top: 10px; width: 250px; font-family: monospace; font-size: 14px; color: white; background: black; padding: 10px;">
-        <h3>Debug Info</h3>
-        <p id="fps">FPS: 0</p>
-        <p id="captured">Captured: 0%</p>
-        <p id="floodFill">FloodFill: Idle</p>
-        <p id="fillSize">Fill Size: 0</p>
-    </div>
     <script>
         const API_URL = "ВАШ_СЕРВЕРНЫЙ_URL";
 
@@ -27,7 +20,6 @@
 
         let player, cursors, enemies = [], trail = [], field = [];
         let gameOver = false, scoreText, graphics, background;
-        let floodFillRunning = false;
         const cellSize = 10;
         const cols = 80, rows = 60;
 
@@ -41,7 +33,7 @@
 
         function create() {
             background = this.add.tileSprite(400, 300, 800, 600, 'background');
-            background.setAlpha(0.5);
+            background.setAlpha(0);
 
             graphics = this.add.graphics();
             initField();
@@ -67,8 +59,6 @@
 
         function update() {
             if (gameOver) return;
-
-            document.getElementById('fps').innerText = `FPS: ${Math.round(game.loop.actualFps)}`;
 
             player.setVelocity(0);
 
@@ -133,12 +123,8 @@
         }
 
         function floodFill() {
-            floodFillRunning = true;
-            document.getElementById('floodFill').innerText = 'FloodFill: Running';
-
             let visited = new Array(rows).fill(0).map(() => new Array(cols).fill(false));
             let queue = [];
-            let fillSize = 0;
 
             function addToQueue(x, y) {
                 if (x < 0 || y < 0 || x >= cols || y >= rows) return;
@@ -155,44 +141,64 @@
 
             while (queue.length > 0) {
                 let { x, y } = queue.shift();
-                fillSize++;
-
                 addToQueue(x + 1, y);
                 addToQueue(x - 1, y);
                 addToQueue(x, y + 1);
                 addToQueue(x, y - 1);
-
-                if (fillSize > 5000) {
-                    console.warn("Flood fill stopped - too large!");
-                    break;
-                }
             }
-
-            document.getElementById('fillSize').innerText = `Fill Size: ${fillSize}`;
 
             for (let y = 0; y < rows; y++) {
                 for (let x = 0; x < cols; x++) {
                     if (!visited[y][x]) {
                         field[y][x] = 1;
-                        background.setAlpha(0.7);
+                        background.setAlpha(1);
                     }
                 }
             }
-
-            floodFillRunning = false;
-            document.getElementById('floodFill').innerText = 'FloodFill: Idle';
         }
 
         function updateScore() {
             let capturedCells = field.flat().filter(v => v === 1).length;
             let totalCells = cols * rows;
             let percentage = Math.floor((capturedCells / totalCells) * 100);
-            document.getElementById('captured').innerText = `Captured: ${percentage}%`;
+            scoreText.setText(`Captured: ${percentage}%`);
 
             if (percentage >= 75) {
                 gameOver = true;
                 scoreText.setText('You Win!');
                 saveScore();
+            }
+        }
+
+        function drawField() {
+            graphics.clear();
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    if (field[y][x] === 1) {
+                        graphics.fillStyle(0x5555ff, 1);
+                        graphics.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                    }
+                }
+            }
+
+            graphics.lineStyle(2, 0xff0000);
+            trail.forEach((point, index) => {
+                if (index > 0) {
+                    graphics.lineBetween(trail[index - 1].x, trail[index - 1].y, point.x, point.y);
+                }
+            });
+        }
+
+        function initField() {
+            for (let y = 0; y < rows; y++) {
+                field[y] = [];
+                for (let x = 0; x < cols; x++) {
+                    if (x === 0 || y === 0 || x === cols - 1 || y === rows - 1) {
+                        field[y][x] = 1;
+                    } else {
+                        field[y][x] = 0;
+                    }
+                }
             }
         }
 
