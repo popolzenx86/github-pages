@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Xonix</title>
+    <title>Territory Capture</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.55.2/phaser.min.js"></script>
 </head>
 <body>
     <script>
+        const API_URL = "ВАШ_СЕРВЕРНЫЙ_URL";
+
         const config = {
             type: Phaser.AUTO,
             width: 800,
@@ -16,9 +18,8 @@
             scene: { preload, create, update }
         };
 
-        let player, cursors, enemies = [], trail = [], capturedArea = 0;
+        let player, cursors, enemies = [], trail = [], capturedArea = 0, capturedZones = [];
         let gameOver = false, scoreText, graphics, background;
-        let lineGraphics, isDrawing = false;
 
         const game = new Phaser.Game(config);
 
@@ -34,7 +35,6 @@
             
             this.add.rectangle(400, 300, 800, 600, 0x555555);
             graphics = this.add.graphics({ lineStyle: { width: 2, color: 0xff0000 } });
-            lineGraphics = this.add.graphics({ lineStyle: { width: 2, color: 0x00ff00 } });
 
             player = this.physics.add.sprite(50, 300, 'player').setCollideWorldBounds(true);
             
@@ -48,16 +48,6 @@
             cursors = this.input.keyboard.createCursorKeys();
             scoreText = this.add.text(20, 20, 'Captured: 0%', { fontSize: '24px', fill: '#fff' });
             this.physics.add.overlap(player, enemies, hitEnemy, null, this);
-
-            this.input.on('pointerdown', () => {
-                isDrawing = true;
-                trail = [];
-            });
-
-            this.input.on('pointerup', () => {
-                isDrawing = false;
-                checkCapture();
-            });
         }
 
         function update() {
@@ -69,44 +59,72 @@
             if (cursors.up.isDown) player.setVelocityY(-200);
             if (cursors.down.isDown) player.setVelocityY(200);
             
-            if (isDrawing) {
+            if (!onCapturedZone(player.x, player.y)) {
                 trail.push({ x: player.x, y: player.y });
-                drawTrail();
+            }
+            
+            drawTrail();
+            
+            if (playerOnBorder()) {
+                checkCapture();
+                trail = [];
             }
         }
 
         function drawTrail() {
-            lineGraphics.clear();
-            lineGraphics.beginPath();
+            graphics.clear();
+            graphics.beginPath();
             trail.forEach((point, index) => {
                 if (index === 0) {
-                    lineGraphics.moveTo(point.x, point.y);
+                    graphics.moveTo(point.x, point.y);
                 } else {
-                    lineGraphics.lineTo(point.x, point.y);
+                    graphics.lineTo(point.x, point.y);
                 }
             });
-            lineGraphics.strokePath();
+            graphics.strokePath();
+        }
+
+        function playerOnBorder() {
+            return player.x <= 5 || player.x >= 795 || player.y <= 5 || player.y >= 595;
         }
 
         function hitEnemy(player, enemy) {
             gameOver = true;
             scoreText.setText('Game Over!');
+            saveScore(capturedArea);
         }
 
         function checkCapture() {
-            if (trail.length < 3) return;
-
-            let area = Phaser.Math.Between(5, 15);
-            capturedArea += area;
-            scoreText.setText(`Captured: ${capturedArea}%`);
-            
-            let newAlpha = capturedArea / 100;
-            background.setAlpha(newAlpha > 1 ? 1 : newAlpha);
-            
-            if (capturedArea >= 75) {
-                gameOver = true;
-                scoreText.setText('You Win!');
+            if (trail.length > 2) {
+                capturedZones.push([...trail]);
+                capturedArea = calculateCapturedPercentage();
+                scoreText.setText(`Captured: ${capturedArea}%`);
+                let newAlpha = capturedArea / 100;
+                background.setAlpha(newAlpha > 1 ? 1 : newAlpha);
+                if (capturedArea >= 75) {
+                    gameOver = true;
+                    scoreText.setText('You Win!');
+                    saveScore(capturedArea);
+                }
             }
+        }
+
+        function onCapturedZone(x, y) {
+            return capturedZones.some(zone => zone.some(point => Math.abs(point.x - x) < 5 && Math.abs(point.y - y) < 5));
+        }
+
+        function calculateCapturedPercentage() {
+            let totalArea = 800 * 600;
+            let capturedPixels = capturedZones.reduce((acc, zone) => acc + zone.length, 0);
+            return Math.min((capturedPixels / totalArea) * 100, 100);
+        }
+
+        function saveScore(captured) {
+            fetch(API_URL, {
+                method: "POST",
+                body: JSON.stringify({ userId: "12345", captured }),
+                headers: { "Content-Type": "application/json" },
+            });
         }
     </script>
 </body>
