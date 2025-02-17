@@ -24,9 +24,9 @@
         const game = new Phaser.Game(config);
 
         function preload() {
-            this.load.image('player', 'https://popolzenx86.github.io/zenpop/player.png');
-            this.load.image('enemy', 'https://popolzenx86.github.io/zenpop/enemy.png');
-            this.load.image('background', 'https://popolzenx86.github.io/zenpop/background.png');
+            this.load.image('player', 'https://i.imgur.com/q1mK4ik.png');
+            this.load.image('enemy', 'https://i.imgur.com/5uJkrkK.png');
+            this.load.image('background', 'https://i.imgur.com/your_background_image.png');
         }
 
         function create() {
@@ -36,9 +36,9 @@
             this.add.rectangle(400, 300, 800, 600, 0x555555);
             graphics = this.add.graphics({ lineStyle: { width: 2, color: 0xff0000 } });
 
-            player = this.physics.add.sprite(32, 32, 'player').setCollideWorldBounds(true);
+            player = this.physics.add.sprite(50, 300, 'player').setCollideWorldBounds(true);
             
-            for (let i = 0; i < 1; i++) {
+            for (let i = 0; i < 3; i++) {
                 let enemy = this.physics.add.sprite(Phaser.Math.Between(200, 600), Phaser.Math.Between(100, 500), 'enemy');
                 enemy.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-100, 100));
                 enemy.setBounce(1).setCollideWorldBounds(true);
