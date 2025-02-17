@@ -18,9 +18,9 @@
             scene: { preload, create, update }
         };
 
-        let player, cursors, enemies = [], trail = [], capturedZones = [];
-        let gameOver = false, scoreText, graphics, field = [];
-        const cellSize = 10; // Размер ячейки сетки
+        let player, cursors, enemies = [], trail = [], field = [];
+        let gameOver = false, scoreText, graphics, background;
+        const cellSize = 10;
         const cols = 80, rows = 60;
 
         const game = new Phaser.Game(config);
@@ -28,9 +28,13 @@
         function preload() {
             this.load.image('player', 'https://popolzenx86.github.io/zenpop/player.png');
             this.load.image('enemy', 'https://popolzenx86.github.io/zenpop/enemy.png');
+            this.load.image('background', 'https://popolzenx86.github.io/zenpop/background.png');
         }
 
         function create() {
+            background = this.add.tileSprite(400, 300, 800, 600, 'background');
+            background.setAlpha(0);
+
             graphics = this.add.graphics();
             initField();
 
@@ -75,7 +79,10 @@
             let newX = player.x + dx;
             let newY = player.y + dy;
 
-            if (field[Math.floor(newY / cellSize)][Math.floor(newX / cellSize)] === 0) {
+            let cx = Math.floor(newX / cellSize);
+            let cy = Math.floor(newY / cellSize);
+
+            if (field[cy][cx] === 0) {
                 trail.push({ x: player.x, y: player.y });
                 checkTrailCollision();
             }
@@ -137,7 +144,10 @@
 
             for (let y = 0; y < rows; y++) {
                 for (let x = 0; x < cols; x++) {
-                    if (!visited[y][x]) field[y][x] = 1;
+                    if (!visited[y][x]) {
+                        field[y][x] = 1;
+                        background.setAlpha(1);
+                    }
                 }
             }
         }
