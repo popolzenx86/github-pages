@@ -174,7 +174,8 @@
                 for (let x = 0; x < cols; x++) {
                     if (!visited[y][x]) {
                         field[y][x] = 1;
-                        background.setAlpha(1);
+                        graphics.fillStyle(0xffffff, 1);
+                        graphics.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
                     }
                 }
             }
