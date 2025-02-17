@@ -19,17 +19,23 @@
         };
 
         let player, cursors, enemies = [], trail = [], capturedArea = 0;
-        let gameOver = false, scoreText;
+        let gameOver = false, scoreText, graphics, background;
 
         const game = new Phaser.Game(config);
 
         function preload() {
-            this.load.image('player', 'https://popolzenx86.github.io/zenpop/enemy.png');
-            this.load.image('enemy', 'https://i.imgur.com/5uJkrkK.png');
+            this.load.image('player', 'https://popolzenx86.github.io/zenpop/player.png');
+            this.load.image('enemy', 'https://popolzenx86.github.io/zenpop/enemy.png');
+            this.load.image('background', 'https://popolzenx86.github.io/zenpop/background.png');
         }
 
         function create() {
+            background = this.add.image(400, 300, 'background');
+            background.setAlpha(0); 
+            
             this.add.rectangle(400, 300, 800, 600, 0x555555);
+            graphics = this.add.graphics({ lineStyle: { width: 2, color: 0xff0000 } });
+
             player = this.physics.add.sprite(50, 300, 'player').setCollideWorldBounds(true);
             
             for (let i = 0; i < 3; i++) {
@@ -56,7 +62,22 @@
             trail.push({ x: player.x, y: player.y });
             if (trail.length > 100) trail.shift();
             
+            drawTrail();
+            
             if (Math.random() < 0.01) checkCapture();
+        }
+
+        function drawTrail() {
+            graphics.clear();
+            graphics.beginPath();
+            trail.forEach((point, index) => {
+                if (index === 0) {
+                    graphics.moveTo(point.x, point.y);
+                } else {
+                    graphics.lineTo(point.x, point.y);
+                }
+            });
+            graphics.strokePath();
         }
 
         function hitEnemy(player, enemy) {
@@ -69,6 +90,10 @@
             let area = Phaser.Math.Between(5, 15);
             capturedArea += area;
             scoreText.setText(`Captured: ${capturedArea}%`);
+            
+            let newAlpha = capturedArea / 100;
+            background.setAlpha(newAlpha > 1 ? 1 : newAlpha);
+            
             if (capturedArea >= 75) {
                 gameOver = true;
                 scoreText.setText('You Win!');
