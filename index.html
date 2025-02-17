@@ -19,7 +19,7 @@
         };
 
         let player, cursors, enemies = [], trail = [], capturedArea = 0, capturedZones = [];
-        let gameOver = false, scoreText, graphics, background;
+        let gameOver = false, scoreText, graphics, background, maskGraphics;
 
         const game = new Phaser.Game(config);
 
@@ -35,6 +35,11 @@
             
             this.add.rectangle(400, 300, 800, 600, 0x555555);
             graphics = this.add.graphics({ lineStyle: { width: 2, color: 0xff0000 } });
+
+            maskGraphics = this.make.graphics();
+            maskGraphics.fillStyle(0xffffff);
+            maskGraphics.fillRect(0, 0, 800, 600);
+            background.mask = new Phaser.Display.Masks.GeometryMask(this, maskGraphics);
 
             player = this.physics.add.sprite(32, 32, 'player').setCollideWorldBounds(true);
             
@@ -106,7 +111,25 @@
                     scoreText.setText('You Win!');
                     saveScore(capturedArea);
                 }
+                updateMask();
             }
+        }
+
+        function updateMask() {
+            maskGraphics.clear();
+            maskGraphics.fillStyle(0xffffff);
+            capturedZones.forEach(zone => {
+                maskGraphics.beginPath();
+                zone.forEach((point, index) => {
+                    if (index === 0) {
+                        maskGraphics.moveTo(point.x, point.y);
+                    } else {
+                        maskGraphics.lineTo(point.x, point.y);
+                    }
+                });
+                maskGraphics.closePath();
+                maskGraphics.fillPath();
+            });
         }
 
         function onCapturedZone(x, y) {
