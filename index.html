@@ -3,10 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Territory Capture</title>
+    <title>Classic Xonix Debug</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.55.2/phaser.min.js"></script>
 </head>
 <body>
+    <div style="position: absolute; left: 820px; top: 10px; width: 250px; font-family: monospace; font-size: 14px; color: white; background: black; padding: 10px;">
+        <h3>Debug Info</h3>
+        <p id="fps">FPS: 0</p>
+        <p id="captured">Captured: 0%</p>
+        <p id="floodFill">FloodFill: Idle</p>
+        <p id="fillSize">Fill Size: 0</p>
+    </div>
     <script>
         const API_URL = "ВАШ_СЕРВЕРНЫЙ_URL";
 
@@ -18,8 +25,11 @@
             scene: { preload, create, update }
         };
 
-        let player, cursors, enemies = [], trail = [], capturedArea = 0, capturedZones = [];
+        let player, cursors, enemies = [], trail = [], field = [];
         let gameOver = false, scoreText, graphics, background;
+        let floodFillRunning = false;
+        const cellSize = 10;
+        const cols = 80, rows = 60;
 
         const game = new Phaser.Game(config);
 
@@ -30,100 +40,177 @@
         }
 
         function create() {
-            background = this.add.image(400, 300, 'background');
-            background.setAlpha(0); 
-            
-            this.add.rectangle(400, 300, 800, 600, 0x555555);
-            graphics = this.add.graphics({ lineStyle: { width: 2, color: 0xff0000 } });
+            background = this.add.tileSprite(400, 300, 800, 600, 'background');
+            background.setAlpha(0);
 
-            player = this.physics.add.sprite(32, 32, 'player').setCollideWorldBounds(true);
-            
-            for (let i = 0; i < 1; i++) {
-                let enemy = this.physics.add.sprite(Phaser.Math.Between(200, 600), Phaser.Math.Between(100, 500), 'enemy');
+            graphics = this.add.graphics();
+            initField();
+
+            player = this.physics.add.sprite(10, 10, 'player').setCollideWorldBounds(true);
+
+            for (let i = 0; i < 3; i++) {
+                let enemy = this.physics.add.sprite(
+                    Phaser.Math.Between(200, 600),
+                    Phaser.Math.Between(100, 500),
+                    'enemy'
+                );
                 enemy.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-100, 100));
                 enemy.setBounce(1).setCollideWorldBounds(true);
                 enemies.push(enemy);
             }
-            
+
             cursors = this.input.keyboard.createCursorKeys();
             scoreText = this.add.text(20, 20, 'Captured: 0%', { fontSize: '24px', fill: '#fff' });
+
             this.physics.add.overlap(player, enemies, hitEnemy, null, this);
         }
 
         function update() {
             if (gameOver) return;
-            
+
+            document.getElementById('fps').innerText = `FPS: ${Math.round(game.loop.actualFps)}`;
+
             player.setVelocity(0);
-            if (cursors.left.isDown) player.setVelocityX(-200);
-            if (cursors.right.isDown) player.setVelocityX(200);
-            if (cursors.up.isDown) player.setVelocityY(-200);
-            if (cursors.down.isDown) player.setVelocityY(200);
-            
-            if (!onCapturedZone(player.x, player.y)) {
-                trail.push({ x: player.x, y: player.y });
-            }
-            
-            drawTrail();
-            
-            if (playerOnBorder()) {
-                checkCapture();
+
+            if (cursors.left.isDown) movePlayer(-cellSize, 0);
+            if (cursors.right.isDown) movePlayer(cellSize, 0);
+            if (cursors.up.isDown) movePlayer(0, -cellSize);
+            if (cursors.down.isDown) movePlayer(0, cellSize);
+
+            if (trail.length > 0 && isPlayerOnBorder(player.x, player.y)) {
+                captureArea();
                 trail = [];
             }
+
+            drawField();
         }
 
-        function drawTrail() {
-            graphics.clear();
-            graphics.beginPath();
-            trail.forEach((point, index) => {
-                if (index === 0) {
-                    graphics.moveTo(point.x, point.y);
-                } else {
-                    graphics.lineTo(point.x, point.y);
-                }
+        function movePlayer(dx, dy) {
+            let newX = player.x + dx;
+            let newY = player.y + dy;
+
+            let cx = Math.floor(newX / cellSize);
+            let cy = Math.floor(newY / cellSize);
+
+            if (field[cy][cx] === 0) {
+                trail.push({ x: player.x, y: player.y });
+                checkTrailCollision();
+            }
+
+            player.x = newX;
+            player.y = newY;
+        }
+
+        function isPlayerOnBorder(x, y) {
+            let cx = Math.floor(x / cellSize);
+            let cy = Math.floor(y / cellSize);
+            return cx === 0 || cx === cols - 1 || cy === 0 || cy === rows - 1;
+        }
+
+        function checkTrailCollision() {
+            enemies.forEach(enemy => {
+                trail.forEach(point => {
+                    if (Phaser.Math.Distance.Between(enemy.x, enemy.y, point.x, point.y) < cellSize / 2) {
+                        gameOver = true;
+                        scoreText.setText('Game Over!');
+                        saveScore();
+                    }
+                });
             });
-            graphics.strokePath();
         }
 
-        function playerOnBorder() {
-            return player.x <= 5 || player.x >= 795 || player.y <= 5 || player.y >= 595;
+        function captureArea() {
+            if (trail.length < 3) return;
+
+            trail.forEach(point => {
+                let cx = Math.floor(point.x / cellSize);
+                let cy = Math.floor(point.y / cellSize);
+                field[cy][cx] = 1;
+            });
+
+            floodFill();
+            updateScore();
         }
 
-        function hitEnemy(player, enemy) {
-            gameOver = true;
-            scoreText.setText('Game Over!');
-            saveScore(capturedArea);
-        }
+        function floodFill() {
+            floodFillRunning = true;
+            document.getElementById('floodFill').innerText = 'FloodFill: Running';
 
-        function checkCapture() {
-            if (trail.length > 2) {
-                capturedZones.push([...trail]);
-                capturedArea = calculateCapturedPercentage();
-                scoreText.setText(`Captured: ${capturedArea}%`);
-                let newAlpha = capturedArea / 100;
-                background.setAlpha(newAlpha > 1 ? 1 : newAlpha);
-                if (capturedArea >= 75) {
-                    gameOver = true;
-                    scoreText.setText('You Win!');
-                    saveScore(capturedArea);
+            let visited = new Array(rows).fill(0).map(() => new Array(cols).fill(false));
+            let queue = [];
+            let fillSize = 0;
+
+            function addToQueue(x, y) {
+                if (x < 0 || y < 0 || x >= cols || y >= rows) return;
+                if (visited[y][x] || field[y][x] === 1) return;
+                visited[y][x] = true;
+                queue.push({ x, y });
+            }
+
+            enemies.forEach(enemy => {
+                let cx = Math.floor(enemy.x / cellSize);
+                let cy = Math.floor(enemy.y / cellSize);
+                addToQueue(cx, cy);
+            });
+
+            while (queue.length > 0) {
+                let { x, y } = queue.shift();
+                fillSize++;
+
+                addToQueue(x + 1, y);
+                addToQueue(x - 1, y);
+                addToQueue(x, y + 1);
+                addToQueue(x, y - 1);
+
+                if (fillSize > 5000) {
+                    console.warn("Flood fill stopped - too large!");
+                    break;
                 }
+            }
+
+            document.getElementById('fillSize').innerText = `Fill Size: ${fillSize}`;
+
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    if (!visited[y][x]) {
+                        field[y][x] = 1;
+                        graphics.fillStyle(0xffffff, 1);
+                        graphics.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                    }
+                }
+            }
+
+            floodFillRunning = false;
+            document.getElementById('floodFill').innerText = 'FloodFill: Idle';
+        }
+
+        function updateScore() {
+            let capturedCells = field.flat().filter(v => v === 1).length;
+            let totalCells = cols * rows;
+            let percentage = Math.floor((capturedCells / totalCells) * 100);
+            document.getElementById('captured').innerText = `Captured: ${percentage}%`;
+
+            if (percentage >= 75) {
+                gameOver = true;
+                scoreText.setText('You Win!');
+                saveScore();
             }
         }
 
-        function onCapturedZone(x, y) {
-            return capturedZones.some(zone => zone.some(point => Math.abs(point.x - x) < 5 && Math.abs(point.y - y) < 5));
+        function hitEnemy() {
+            gameOver = true;
+            scoreText.setText('Game Over!');
+            saveScore();
         }
 
-        function calculateCapturedPercentage() {
-            let totalArea = 800 * 600;
-            let capturedPixels = capturedZones.reduce((acc, zone) => acc + zone.length, 0);
-            return Math.min((capturedPixels / totalArea) * 100, 100);
-        }
+        function saveScore() {
+            let capturedCells = field.flat().filter(v => v === 1).length;
+            let percentage = Math.floor((capturedCells / (cols * rows)) * 100);
 
-        function saveScore(captured) {
             fetch(API_URL, {
                 method: "POST",
-                body: JSON.stringify({ userId: "12345", captured }),
-                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: "12345", captured: percentage }),
+                headers: { "Content-Type": "application/json" }
             });
         }
     </script>
