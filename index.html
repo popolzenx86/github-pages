@@ -124,23 +124,28 @@
 
         function floodFill() {
             let visited = new Array(rows).fill(0).map(() => new Array(cols).fill(false));
+            let queue = [];
 
-            function fill(x, y) {
+            function addToQueue(x, y) {
                 if (x < 0 || y < 0 || x >= cols || y >= rows) return;
                 if (visited[y][x] || field[y][x] === 1) return;
-
                 visited[y][x] = true;
-                fill(x + 1, y);
-                fill(x - 1, y);
-                fill(x, y + 1);
-                fill(x, y - 1);
+                queue.push({ x, y });
             }
 
             enemies.forEach(enemy => {
                 let cx = Math.floor(enemy.x / cellSize);
                 let cy = Math.floor(enemy.y / cellSize);
-                fill(cx, cy);
+                addToQueue(cx, cy);
             });
+
+            while (queue.length > 0) {
+                let { x, y } = queue.shift();
+                addToQueue(x + 1, y);
+                addToQueue(x - 1, y);
+                addToQueue(x, y + 1);
+                addToQueue(x, y - 1);
+            }
 
             for (let y = 0; y < rows; y++) {
                 for (let x = 0; x < cols; x++) {
