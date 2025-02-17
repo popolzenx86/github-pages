@@ -41,7 +41,7 @@
 
         function create() {
             background = this.add.tileSprite(400, 300, 800, 600, 'background');
-            background.setAlpha(0);
+            background.setAlpha(0.5);
 
             graphics = this.add.graphics();
             initField();
@@ -174,7 +174,7 @@
                 for (let x = 0; x < cols; x++) {
                     if (!visited[y][x]) {
                         field[y][x] = 1;
-                        background.setAlpha(1);
+                        background.setAlpha(0.7);
                     }
                 }
             }
