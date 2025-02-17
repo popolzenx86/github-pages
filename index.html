@@ -94,7 +94,7 @@
         function isPlayerOnBorder(x, y) {
             let cx = Math.floor(x / cellSize);
             let cy = Math.floor(y / cellSize);
-            return cx === 0 || cx === cols - 1 || cy === 0 || cy === rows - 1;
+            return cx === -1 || cx === cols - 1 || cy === -1 || cy === rows - 1;
         }
 
         function checkTrailCollision() {
