@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Pong</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.55.2/phaser.min.js"></script>
+</head>
+<body>
+    <script>
+        const API_URL = "ВАШ_СЕРВЕРНЫЙ_URL";
+
+        const config = {
+            type: Phaser.AUTO,
+            width: 800,
+            height: 600,
+            physics: { default: 'arcade' },
+            scene: { preload, create, update }
+        };
+
+        let player, opponent, ball, playerScore = 0, opponentScore = 0;
+        let cursors, scoreText;
+
+        const game = new Phaser.Game(config);
+
+        function preload() {
+            this.load.image('paddle', 'https://i.imgur.com/2nBJSJ3.png');
+            this.load.image('ball', 'https://i.imgur.com/3pUep1A.png');
+        }
+
+        function create() {
+            player = this.physics.add.sprite(50, 300, 'paddle').setImmovable();
+            opponent = this.physics.add.sprite(750, 300, 'paddle').setImmovable();
+            ball = this.physics.add.sprite(400, 300, 'ball');
+            
+            ball.setCollideWorldBounds(true);
+            ball.setBounce(1);
+            ball.setVelocityX(-200);
+            
+            this.physics.add.collider(ball, player, bounceBall, null, this);
+            this.physics.add.collider(ball, opponent, bounceBall, null, this);
+            
+            cursors = this.input.keyboard.createCursorKeys();
+            
+            scoreText = this.add.text(350, 20, 'Score: 0 - 0', { fontSize: '32px', fill: '#fff' });
+        }
+
+        function update() {
+            if (cursors.up.isDown) player.setVelocityY(-300);
+            else if (cursors.down.isDown) player.setVelocityY(300);
+            else player.setVelocityY(0);
+            
+            opponent.y = ball.y;
+            
+            if (ball.x < 0) { opponentScore++; resetBall(); }
+            if (ball.x > 800) { playerScore++; resetBall(); }
+            
+            scoreText.setText(`Score: ${playerScore} - ${opponentScore}`);
+            
+            if (ball.x < 0 || ball.x > 800) saveScore(playerScore, opponentScore);
+        }
+
+        function bounceBall(ball, paddle) {
+            let diff = ball.y - paddle.y;
+            ball.setVelocityY(diff * 5);
+        }
+
+        function resetBall() {
+            ball.setPosition(400, 300);
+            ball.setVelocityX(ball.body.velocity.x > 0 ? -200 : 200);
+        }
+
+        function saveScore(playerScore, opponentScore) {
+            fetch(API_URL, {
+                method: "POST",
+                body: JSON.stringify({ userId: "12345", playerScore, opponentScore }),
+                headers: { "Content-Type": "application/json" },
+            });
+        }
+    </script>
+</body>
+</html>
